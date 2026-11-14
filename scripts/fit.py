@@ -9,6 +9,7 @@ import datetime as dt
 import glob
 import json
 import os
+import re
 import sys
 from collections import Counter, defaultdict
 
@@ -18,11 +19,16 @@ ACT = os.path.join(ROOT, "data", "activity.csv")
 DAILY = os.path.join(ROOT, "data", "daily.csv")
 LOGDIR = os.path.join(ROOT, "data", "log")
 PROFILE = os.path.join(ROOT, "profile.json")
+GYMDIR = os.path.join(ROOT, "data", "gym")
+EXFILE = os.path.join(ROOT, "data", "exercises.csv")
 
 FOOD_H = ["key", "serving", "kcal", "p", "c", "f", "src"]
 LOG_H = ["date", "meal", "food", "qty", "kcal", "p", "c", "f"]
 ACT_H = ["date", "total", "active", "steps", "sleep_h", "rhr", "weight", "workout"]
-DAILY_H = ["date", "in", "out", "net", "p", "c", "f", "steps", "weight"]
+DAILY_H = ["date", "in", "out", "net", "p", "c", "f", "steps", "weight", "gym_sets", "gym_vol", "gym_min"]
+EX_H = ["key", "group", "type"]  # type: w = weights, bw = bodyweight, c = cardio
+GYM_H = ["date", "exercise", "group", "sets", "reps", "kg", "min", "vol"]
+GROUPS = ["chest", "back", "legs", "shoulders", "arms", "core", "cardio", "full"]
 MEALS = {"B": "breakfast", "L": "lunch", "D": "dinner", "S": "snack"}
 ACT_ALIASES = {"sleep": "sleep_h", "sl": "sleep_h", "s": "steps", "a": "active",
                "t": "total", "w": "weight", "hr": "rhr"}
@@ -118,6 +124,17 @@ def foods_map():
     return {r["key"]: r for r in read(FOODS)}
 
 
+def gym_path(date):
+    return os.path.join(GYMDIR, date[:7] + ".csv")
+
+
+def all_gym():
+    rows = []
+    for p in sorted(glob.glob(os.path.join(GYMDIR, "*.csv"))):
+        rows += read(p)
+    return rows
+
+
 # ---------- rollup ----------
 def rollup(quiet=False):
     days = defaultdict(lambda: {"in": 0.0, "p": 0.0, "c": 0.0, "f": 0.0})
@@ -125,20 +142,31 @@ def rollup(quiet=False):
         d = days[r["date"]]
         for k, src in (("in", "kcal"), ("p", "p"), ("c", "c"), ("f", "f")):
             d[k] += num(r[src], 0)
+    gym = defaultdict(lambda: [0.0, 0.0, 0.0])  # sets, volume, minutes
+    for r in all_gym():
+        gd = gym[r["date"]]
+        gd[0] += num(r["sets"], 0)
+        gd[1] += num(r["vol"], 0)
+        gd[2] += num(r["min"], 0)
     act = {r["date"]: r for r in read(ACT)}
     out = []
-    for date in sorted(set(days) | set(act)):
+    for date in sorted(set(days) | set(act) | set(gym)):
         a = act.get(date, {})
         food = days.get(date)
         total = num(a.get("total"))
         row = {"date": date, "steps": a.get("steps", ""), "weight": a.get("weight", ""),
                "out": g(total) if total is not None else ""}
+        if date in gym:
+            row.update(gym_sets=g(gym[date][0]), gym_vol=g(gym[date][1]), gym_min=g(gym[date][2]))
         if food:
             row.update({k: g(v) for k, v in food.items()})
             if total is not None:
                 row["net"] = g(food["in"] - total)
         out.append(row)
     write(DAILY, DAILY_H, out)
+    months = lambda d: sorted(os.path.basename(p)[:7] for p in glob.glob(os.path.join(d, "*.csv")))
+    with open(os.path.join(ROOT, "data", "index.json"), "w", encoding="utf-8") as fh:
+        json.dump({"log": months(LOGDIR), "gym": months(GYMDIR)}, fh)
     if not quiet:
         print(f"daily.csv: {len(out)} days")
 
@@ -350,7 +378,8 @@ def cmd_stats(args):
 
     print(f"PERIOD {rng[0]}..{rng[-1]} ({n}d) food-logged {len(fdays)} burn-logged {len(odays)}")
     if not fdays and not odays:
-        print("no data in period")
+        print("no food/burn data in period")
+        gym_stats(rng)
         return
     ai, ao, an = avg(fdays, "in"), avg(odays, "out"), avg(ndays, "net")
     print(f"AVG in {g(ai)} out {g(ao)} net {g(an)} | target in {g(pr.get('kcal_target'))} "
@@ -418,17 +447,174 @@ def cmd_stats(args):
     miss_o = [d[5:] for d in rng if d not in {r['date'] for r in odays}]
     if miss_f or miss_o:
         print(f"MISSING food: {' '.join(miss_f) or '-'} | burn: {' '.join(miss_o) or '-'}")
+    gym_stats(rng)
     if ai is not None and ai < 1200:
         print("FLAG avg intake < 1200 kcal")
 
 
+# ---------- gym ----------
+SPEC = re.compile(
+    r"^(?P<key>.+?)\s+(?:"
+    r"(?P<sets>\d+)\s*[x*]\s*(?P<reps>\d+)(?:\s*@\s*(?P<w>[\d.]+)\s*(?P<u>kg|lbs?)?)?"
+    r"|(?P<min>[\d.]+)\s*(?:m|min|mins)"
+    r")$", re.I)
+
+
+def cmd_ex(args):
+    if len(args) < 2 or args[1].lower() not in GROUPS:
+        sys.exit(f"usage: ex KEY GROUP [w|bw|c]  GROUP = {'|'.join(GROUPS)}")
+    key = norm_key(args[0])
+    row = {"key": key, "group": args[1].lower(), "type": args[2] if len(args) > 2 else "w"}
+    rows = [r for r in read(EXFILE) if r["key"] != key] + [row]
+    rows.sort(key=lambda r: (r["group"], r["key"]))
+    write(EXFILE, EX_H, rows)
+    print(f"exercise {key} -> {row['group']} ({row['type']})")
+
+
+def best_kg(rows):
+    best = {}
+    for r in rows:
+        kg = num(r["kg"], 0)
+        if kg > best.get(r["exercise"], 0):
+            best[r["exercise"]] = kg
+    return best
+
+
+def cmd_gym(args):
+    date = parse_date("today")
+    if args and is_date(args[0]):
+        date, args = parse_date(args[0]), args[1:]
+    parts = [p.strip() for p in " ".join(args).replace(";", ",").split(",") if p.strip()]
+    if not parts:
+        sys.exit('usage: gym [DATE] "bench_press 4x8@60, pullup 3x10, treadmill 20m"')
+    matches, bad = [], []
+    for p in parts:
+        m = SPEC.match(p)
+        (matches if m else bad).append(m or p)
+    if bad:
+        print("CANNOT PARSE: " + " | ".join(bad))
+        print("format: KEY SETSxREPS[@KG|@LBS] or KEY MINUTESm  (nothing was logged)")
+        sys.exit(1)
+    exm = {r["key"]: r for r in read(EXFILE)}
+    unknown = sorted({norm_key(m["key"]) for m in matches} - set(exm))
+    if unknown:
+        print("UNKNOWN: " + ", ".join(unknown))
+        print(f"add each: fit.py ex KEY {'|'.join(GROUPS)} [w|bw|c]  (nothing was logged)")
+        sys.exit(1)
+    prev = best_kg(all_gym())
+    rows = []
+    for m in matches:
+        k = norm_key(m["key"])
+        row = {"date": date, "exercise": k, "group": exm[k]["group"], "sets": "", "reps": "",
+               "kg": "", "min": "", "vol": "0"}
+        if m["min"]:
+            row["min"] = g(num(m["min"]))
+        else:
+            sets, reps, kg = int(m["sets"]), int(m["reps"]), num(m["w"], 0)
+            if (m["u"] or "").lower().startswith("lb"):
+                kg *= 0.45359237
+            row.update(sets=str(sets), reps=str(reps), kg=g(kg) if kg else "", vol=g(sets * reps * kg))
+        rows.append(row)
+    append(gym_path(date), GYM_H, rows)
+    rollup(quiet=True)
+    day = [r for r in read(gym_path(date)) if r["date"] == date]
+    sets = sum(num(r["sets"], 0) for r in day)
+    vol = sum(num(r["vol"], 0) for r in day)
+    mins = sum(num(r["min"], 0) for r in day)
+    groups = sorted({r["group"] for r in day})
+    prs = [f"{r['exercise']} {r['kg']}kg" for r in rows
+           if num(r["kg"], 0) > prev.get(r["exercise"], 0) and r["exercise"] in prev]
+    s = f"gym {date}: {g(sets)} sets, vol {g(vol)} kg"
+    if mins:
+        s += f", cardio {g(mins)} min"
+    s += " | " + ", ".join(groups)
+    if prs:
+        s += " | PR " + ", ".join(prs)
+    print(s)
+
+
+def cmd_gymday(args):
+    date = parse_date(args[0] if args else "today")
+    day = [r for r in read(gym_path(date)) if r["date"] == date]
+    if not day:
+        print(f"{date}: no workout")
+        return
+    for r in day:
+        print(f"{r['exercise']} {r['min'] + 'm' if r['min'] else r['sets'] + 'x' + r['reps']}"
+              + (f"@{r['kg']}" if r["kg"] else ""))
+
+
+def cmd_gdel(args):
+    if len(args) < 2:
+        sys.exit("usage: gdel DATE KEY  (removes the last entry of KEY on DATE)")
+    date, key = parse_date(args[0]), norm_key(args[1])
+    path = gym_path(date)
+    rows = read(path)
+    for i in range(len(rows) - 1, -1, -1):
+        if rows[i]["date"] == date and rows[i]["exercise"] == key:
+            del rows[i]
+            write(path, GYM_H, rows)
+            rollup(quiet=True)
+            print(f"removed {key} on {date}")
+            return
+    print("not found")
+
+
+def cmd_prs(_):
+    best = {}
+    for r in all_gym():
+        kg, reps = num(r["kg"], 0), num(r["reps"], 0)
+        if not kg:
+            continue
+        e1rm = kg * (1 + reps / 30)
+        b = best.get(r["exercise"])
+        if not b or e1rm > b[1]:
+            best[r["exercise"]] = (kg, e1rm, reps, r["date"])
+    if not best:
+        print("no weighted lifts yet")
+    for k, (kg, e1rm, reps, d) in sorted(best.items(), key=lambda x: -x[1][1])[:15]:
+        print(f"{k}: {g(kg)}kg x{g(reps)} (e1RM {g(e1rm)}) {d}")
+
+
+def gym_stats(rng):
+    rows = [r for r in all_gym() if rng[0] <= r["date"] <= rng[-1]]
+    n = len(rng)
+    start = dt.date.fromisoformat(rng[0])
+    prev_rng = ((start - dt.timedelta(days=n)).isoformat(), (start - dt.timedelta(days=1)).isoformat())
+    prev = [r for r in all_gym() if prev_rng[0] <= r["date"] <= prev_rng[1]]
+    if not rows and not prev:
+        print("GYM no workouts logged")
+        return
+    vol = sum(num(r["vol"], 0) for r in rows)
+    pvol = sum(num(r["vol"], 0) for r in prev)
+    mins = sum(num(r["min"], 0) for r in rows)
+    sessions = len({r["date"] for r in rows})
+    print(f"GYM sessions {sessions}/{n}d (prev {len({r['date'] for r in prev})}) | sets "
+          f"{g(sum(num(r['sets'], 0) for r in rows))} | vol {g(vol)} kg (prev {g(pvol)}) | cardio {g(mins)} min")
+    gs = Counter()
+    for r in rows:
+        gs[r["group"]] += num(r["sets"], 0) or (1 if r["min"] else 0)
+    missed = [x for x in GROUPS[:6] if not gs[x]]
+    print("GYM sets/group " + ", ".join(f"{k} {g(v)}" for k, v in gs.most_common())
+          + (f" | not trained: {' '.join(missed)}" if missed else ""))
+    before = best_kg([r for r in all_gym() if r["date"] < rng[0]])
+    prs = {}
+    for r in rows:
+        kg = num(r["kg"], 0)
+        if kg > before.get(r["exercise"], 0) and r["exercise"] in before and kg > prs.get(r["exercise"], 0):
+            prs[r["exercise"]] = kg
+    if prs:
+        print("GYM PRs " + ", ".join(f"{k} {g(v)}kg" for k, v in prs.items()))
+
+
 def cmd_help(_):
     print(__doc__)
-    print("commands: find food add del act zepp day stats rollup  (see CLAUDE.md)")
+    print("commands: find food add del act zepp day stats rollup | gym ex gymday gdel prs  (see CLAUDE.md)")
 
 
 CMDS = {"find": cmd_find, "food": cmd_food, "add": cmd_add, "del": cmd_del, "act": cmd_act,
         "zepp": cmd_zepp, "day": cmd_day, "stats": cmd_stats,
+        "gym": cmd_gym, "ex": cmd_ex, "gymday": cmd_gymday, "gdel": cmd_gdel, "prs": cmd_prs,
         "rollup": lambda a: rollup(), "help": cmd_help}
 
 if __name__ == "__main__":

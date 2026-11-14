@@ -3,150 +3,280 @@
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Calorie Dashboard</title>
+<title>Fitness Dashboard</title>
 <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
 <style>
 :root {
   color-scheme: light;
-  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
-  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --page: #f4f4f1; --surface: #fcfcfb; --raised: #ffffff; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.08); --shadow: 0 1px 2px rgba(0,0,0,.04), 0 8px 24px rgba(0,0,0,.05);
   --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
   --deficit: #2a78d6; --surplus: #e34948; --good: #006300; --bad: #d03b3b;
+  --seq1: #cde2fb; --seq2: #86b6ef; --seq3: #3987e5; --seq4: #1c5cab; --seq5: #0d366b;
+  --hero-a: #1c5cab; --hero-b: #2a78d6; --hero-ink: #ffffff; --hero-ink-2: rgba(255,255,255,.78); --hero-track: rgba(255,255,255,.22);
 }
 @media (prefers-color-scheme: dark) {
   :root:where(:not([data-theme="light"])) {
     color-scheme: dark;
-    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
-    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --page: #0d0d0d; --surface: #1a1a19; --raised: #222220; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.08); --shadow: 0 1px 2px rgba(0,0,0,.4);
     --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
     --deficit: #3987e5; --surplus: #e66767; --good: #0ca30c; --bad: #e66767;
+    --seq1: #184f95; --seq2: #256abf; --seq3: #3987e5; --seq4: #6da7ec; --seq5: #b7d3f6;
+    --hero-a: #104281; --hero-b: #1c5cab;
   }
 }
 :root[data-theme="dark"] {
   color-scheme: dark;
-  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
-  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --page: #0d0d0d; --surface: #1a1a19; --raised: #222220; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.08); --shadow: 0 1px 2px rgba(0,0,0,.4);
   --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
   --deficit: #3987e5; --surplus: #e66767; --good: #0ca30c; --bad: #e66767;
+  --seq1: #184f95; --seq2: #256abf; --seq3: #3987e5; --seq4: #6da7ec; --seq5: #b7d3f6;
+  --hero-a: #104281; --hero-b: #1c5cab;
 }
 * { box-sizing: border-box; }
+html { -webkit-text-size-adjust: 100%; }
 body { margin: 0; background: var(--page); color: var(--ink);
   font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
-main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
-header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
-h1 { font-size: 22px; margin: 0; }
-h2 { font-size: 15px; margin: 0 0 2px; }
-.sub { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
-.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
-.seg button { background: var(--surface); color: var(--ink-2); border: 0; padding: 6px 12px; font: inherit; cursor: pointer; }
-.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); font-weight: 600; }
-.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
-.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+main { max-width: 1120px; margin: 0 auto; padding: 0 16px 56px; }
+h1, h2, h3 { margin: 0; }
+h2 { font-size: 15px; font-weight: 650; }
+.sub { color: var(--ink-2); font-size: 13px; margin: 2px 0 12px; }
+code { font: 12px ui-monospace, Consolas, monospace; background: var(--grid); padding: 1px 5px; border-radius: 4px; }
+
+/* top bar */
+.top { position: sticky; top: 0; z-index: 5; background: color-mix(in srgb, var(--page) 88%, transparent);
+  backdrop-filter: blur(10px); border-bottom: 1px solid var(--border); }
+.top-in { max-width: 1120px; margin: 0 auto; padding: 10px 16px; display: flex; gap: 12px; align-items: center; justify-content: space-between; flex-wrap: wrap; }
+.brand { display: flex; align-items: center; gap: 10px; font-weight: 700; font-size: 17px; }
+.logo { width: 30px; height: 30px; border-radius: 9px; background: linear-gradient(135deg, var(--hero-a), var(--s3)); display: grid; place-items: center; color: #fff; }
+.tabs, .seg { display: inline-flex; background: var(--grid); padding: 3px; border-radius: 10px; gap: 2px; }
+.tabs button, .seg button { background: transparent; color: var(--ink-2); border: 0; padding: 6px 12px; border-radius: 8px; font: inherit; font-size: 14px; cursor: pointer; }
+.tabs button[aria-selected="true"], .seg button[aria-pressed="true"] { background: var(--raised); color: var(--ink); font-weight: 600; box-shadow: 0 1px 3px rgba(0,0,0,.12); }
+.controls { display: flex; gap: 8px; flex-wrap: wrap; }
+
+/* hero */
+.hero { margin: 16px 0 14px; border-radius: 18px; padding: 22px; color: var(--hero-ink);
+  background: radial-gradient(120% 140% at 100% 0%, var(--hero-b) 0%, var(--hero-a) 60%);
+  display: grid; grid-template-columns: auto 1fr 1fr; gap: 24px; align-items: center; box-shadow: var(--shadow); }
+.ring { position: relative; width: 150px; height: 150px; }
+.ring svg { width: 100%; height: 100%; transform: rotate(-90deg); }
+.ring .c { position: absolute; inset: 0; display: grid; place-items: center; text-align: center; }
+.ring .big { font-size: 30px; font-weight: 750; line-height: 1; }
+.ring .sm { font-size: 12px; color: var(--hero-ink-2); margin-top: 4px; }
+.hero h3 { font-size: 13px; font-weight: 600; color: var(--hero-ink-2); text-transform: uppercase; letter-spacing: .06em; margin-bottom: 10px; }
+.bar-row { margin-bottom: 10px; }
+.bar-row .lbl { display: flex; justify-content: space-between; font-size: 13px; margin-bottom: 4px; }
+.bar-row .lbl span:last-child { color: var(--hero-ink-2); }
+.track { height: 8px; border-radius: 99px; background: var(--hero-track); overflow: hidden; }
+.track div { height: 100%; border-radius: 99px; background: #fff; }
+.hero-stats { display: grid; grid-template-columns: 1fr 1fr; gap: 14px 18px; }
+.hero-stats .v { font-size: 24px; font-weight: 700; line-height: 1.1; }
+.hero-stats .l { font-size: 12px; color: var(--hero-ink-2); }
+.goal { grid-column: 1 / -1; }
+
+/* cards */
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 14px; padding: 16px; min-width: 0; box-shadow: var(--shadow); }
 .tile .label { color: var(--ink-2); font-size: 13px; }
-.tile .value { font-size: 28px; font-weight: 650; margin: 2px 0; }
+.tile .value { font-size: 26px; font-weight: 700; margin: 2px 0; }
 .tile .note { color: var(--muted); font-size: 12px; }
-.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 460px), 1fr)); gap: 12px; }
 .wide { grid-column: 1 / -1; }
 .chart { position: relative; height: 240px; }
+.chart.tall { height: 280px; }
 .legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
-.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
-.macro { display: flex; height: 28px; gap: 2px; border-radius: 6px; overflow: hidden; margin: 10px 0 8px; }
-.macro div { height: 100%; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; vertical-align: -1px; }
+.macro { display: flex; height: 30px; gap: 2px; border-radius: 8px; overflow: hidden; margin: 8px 0 10px; }
 table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
-th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+th, td { text-align: left; padding: 7px 8px; border-bottom: 1px solid var(--grid); }
 th { color: var(--ink-2); font-weight: 600; font-size: 12px; }
-td.n, th.n { text-align: right; }
-.insights h1 { font-size: 17px; margin: 0 0 6px; }
-.insights h2 { font-size: 14px; margin: 12px 0 4px; color: var(--ink-2); }
-.insights ul { margin: 0; padding-left: 20px; }
+.n { text-align: right; }
+.meal-h th { color: var(--ink); font-size: 13px; background: var(--page); }
+.insights h1 { font-size: 18px; margin-bottom: 6px; }
+.insights h2 { font-size: 13px; margin: 14px 0 4px; color: var(--ink-2); text-transform: uppercase; letter-spacing: .05em; }
+.insights ul { margin: 0; padding-left: 20px; } .insights li { margin: 3px 0; }
 .insights p { margin: 4px 0; }
-.empty { color: var(--muted); font-size: 14px; padding: 20px 0; }
+.empty { color: var(--muted); font-size: 14px; padding: 16px 0; }
 .up { color: var(--bad); } .down { color: var(--good); }
-details summary { cursor: pointer; color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 13px; }
 .scroll { overflow-x: auto; }
+[hidden] { display: none !important; }
+
+/* gym */
+.heat { display: grid; grid-auto-flow: column; grid-template-rows: repeat(7, 1fr); gap: 4px; width: max-content; }
+.heat div { width: 16px; height: 16px; border-radius: 4px; background: var(--grid); }
+.heat-wrap { display: flex; gap: 6px; }
+.heat-days { display: grid; grid-template-rows: repeat(7, 16px); gap: 4px; font-size: 10px; color: var(--muted); line-height: 16px; }
+.scale { display: flex; align-items: center; gap: 4px; font-size: 12px; color: var(--muted); margin-top: 10px; }
+.scale i { width: 12px; height: 12px; border-radius: 3px; display: inline-block; }
+.sessions { display: grid; gap: 10px; }
+.session { border: 1px solid var(--grid); border-radius: 12px; padding: 12px 14px; }
+.session-h { display: flex; justify-content: space-between; gap: 10px; flex-wrap: wrap; margin-bottom: 6px; }
+.session-h b { font-size: 14px; }
+.session-h span { color: var(--muted); font-size: 12px; }
+.chips { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 8px; }
+.chip { font-size: 11px; font-weight: 600; padding: 2px 8px; border-radius: 99px; background: var(--grid); color: var(--ink-2); text-transform: capitalize; }
+.ex { display: flex; justify-content: space-between; font-size: 13px; padding: 3px 0; color: var(--ink-2); gap: 10px; }
+.ex b { color: var(--ink); font-weight: 500; text-transform: capitalize; }
+.pr { color: var(--good); font-weight: 700; font-size: 11px; margin-left: 6px; }
+#tip { position: fixed; pointer-events: none; z-index: 9; background: var(--raised); color: var(--ink); border: 1px solid var(--axis);
+  border-radius: 8px; padding: 6px 9px; font-size: 12px; box-shadow: var(--shadow); opacity: 0; transition: opacity .1s; }
+
+@media (max-width: 820px) {
+  .hero { grid-template-columns: 1fr; justify-items: stretch; }
+  .ring { margin: 0 auto; }
+}
+@media (max-width: 520px) {
+  .top-in { padding: 8px 16px; }
+  .tabs button, .seg button { padding: 6px 9px; font-size: 13px; }
+  .hero { padding: 18px; }
+}
 </style>
 </head>
 <body>
-<main>
-  <header>
-    <div>
-      <h1>Calorie Dashboard</h1>
-      <div class="sub" id="updated">Loading…</div>
+<div class="top"><div class="top-in">
+  <div class="brand"><span class="logo" aria-hidden="true">
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.4" stroke-linecap="round"><path d="M6 7v10M18 7v10M3 10v4M21 10v4M6 12h12"/></svg>
+  </span>Fitness Dashboard</div>
+  <div class="controls">
+    <div class="tabs" role="tablist">
+      <button role="tab" data-tab="overview">Overview</button><button role="tab" data-tab="nutrition">Nutrition</button><button role="tab" data-tab="gym">Gym</button>
     </div>
     <div class="seg" role="group" aria-label="Date range">
-      <button data-r="7">7 days</button><button data-r="30" aria-pressed="true">30 days</button><button data-r="90">90 days</button>
+      <button data-r="7">7d</button><button data-r="30">30d</button><button data-r="90">90d</button>
     </div>
-  </header>
+  </div>
+</div></div>
 
-  <section class="tiles" id="tiles"></section>
+<main>
+  <section class="hero" id="hero"></section>
 
-  <section class="grid">
-    <div class="card wide">
-      <h2>Intake vs burn</h2>
-      <p class="sub">kcal per day — food logged vs total burn from Zepp</p>
-      <div class="legend"><span><i style="background:var(--s1)"></i>Intake</span><span><i style="background:var(--s2)"></i>Burn</span></div>
-      <div class="chart"><canvas id="cIO"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Daily net</h2>
-      <p class="sub">intake − burn; below 0 is a deficit. Dashed line = goal</p>
-      <div class="legend"><span><i style="background:var(--deficit)"></i>Deficit</span><span><i style="background:var(--surplus)"></i>Surplus</span></div>
-      <div class="chart"><canvas id="cNet"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Protein</h2>
-      <p class="sub">grams per day. Dashed line = target</p>
-      <div class="chart"><canvas id="cP"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Macro split</h2>
-      <p class="sub" id="macroSub">share of kcal, average over range</p>
-      <div class="macro" id="macroBar"></div>
-      <div class="legend" id="macroLegend"></div>
-    </div>
-    <div class="card">
-      <h2>Weight</h2>
-      <p class="sub">kg, from <code>w 72.4</code> entries</p>
-      <div class="chart"><canvas id="cW"></canvas></div>
-    </div>
-    <div class="card">
-      <h2>Steps</h2>
-      <p class="sub">per day from Zepp</p>
-      <div class="chart"><canvas id="cS"></canvas></div>
-    </div>
-    <div class="card">
-      <h2 id="todayTitle">Today</h2>
-      <p class="sub">what was logged, by meal</p>
-      <div class="scroll" id="today"></div>
-    </div>
-    <div class="card wide insights" id="insights"></div>
-    <div class="card wide">
-      <h2>Daily data</h2>
-      <details><summary>Show table for selected range</summary><div class="scroll" id="table"></div></details>
-    </div>
-  </section>
+  <!-- OVERVIEW -->
+  <div data-panel="overview">
+    <section class="tiles" id="tilesO"></section>
+    <section class="grid">
+      <div class="card wide">
+        <h2>Intake vs burn</h2>
+        <p class="sub">kcal per day — food logged vs total burn from Zepp</p>
+        <div class="legend"><span><i style="background:var(--s1)"></i>Intake</span><span><i style="background:var(--s2)"></i>Burn</span></div>
+        <div class="chart"><canvas id="cIO"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Daily net</h2>
+        <p class="sub">intake − burn; below 0 is a deficit · dashed = goal</p>
+        <div class="legend"><span><i style="background:var(--deficit)"></i>Deficit</span><span><i style="background:var(--surplus)"></i>Surplus</span></div>
+        <div class="chart"><canvas id="cNet"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Weight</h2>
+        <p class="sub">kg · dashed = goal</p>
+        <div class="chart"><canvas id="cW"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Steps</h2>
+        <p class="sub">per day from Zepp</p>
+        <div class="chart"><canvas id="cS"></canvas></div>
+      </div>
+      <div class="card insights" id="insights"></div>
+    </section>
+  </div>
+
+  <!-- NUTRITION -->
+  <div data-panel="nutrition" hidden>
+    <section class="grid">
+      <div class="card">
+        <h2>Protein</h2>
+        <p class="sub">grams per day · dashed = target</p>
+        <div class="chart"><canvas id="cP"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Macro split</h2>
+        <p class="sub" id="macroSub"></p>
+        <div class="macro" id="macroBar"></div>
+        <div class="legend" id="macroLegend"></div>
+        <h2 style="margin-top:16px">Meal share</h2>
+        <p class="sub">share of kcal by meal</p>
+        <div class="macro" id="mealBar"></div>
+        <div class="legend" id="mealLegend"></div>
+      </div>
+      <div class="card">
+        <h2>Top foods by calories</h2>
+        <p class="sub">total kcal in range — the easiest places to cut</p>
+        <div class="chart tall"><canvas id="cTop"></canvas></div>
+      </div>
+      <div class="card">
+        <h2 id="todayTitle">Today's food</h2>
+        <p class="sub">by meal</p>
+        <div class="scroll" id="today"></div>
+      </div>
+      <div class="card wide">
+        <details><summary>Daily data table</summary><div class="scroll" id="table" style="margin-top:10px"></div></details>
+      </div>
+    </section>
+  </div>
+
+  <!-- GYM -->
+  <div data-panel="gym" hidden>
+    <section class="tiles" id="tilesG"></section>
+    <section class="grid">
+      <div class="card">
+        <h2>Training calendar</h2>
+        <p class="sub">last 16 weeks · darker = more sets</p>
+        <div class="scroll"><div class="heat-wrap"><div class="heat-days"><span></span><span>Mon</span><span></span><span>Wed</span><span></span><span>Fri</span><span></span></div><div class="heat" id="heat"></div></div></div>
+        <div class="scale">Less <i style="background:var(--grid)"></i><i style="background:var(--seq1)"></i><i style="background:var(--seq2)"></i><i style="background:var(--seq3)"></i><i style="background:var(--seq4)"></i><i style="background:var(--seq5)"></i> More</div>
+      </div>
+      <div class="card">
+        <h2>Sets per muscle group</h2>
+        <p class="sub">in range · cardio counted per session</p>
+        <div class="chart"><canvas id="cGroups"></canvas></div>
+      </div>
+      <div class="card wide">
+        <h2>Volume per session</h2>
+        <p class="sub">kg lifted (sets × reps × weight)</p>
+        <div class="chart"><canvas id="cVol"></canvas></div>
+      </div>
+      <div class="card">
+        <h2>Recent workouts</h2>
+        <p class="sub">latest 5 sessions</p>
+        <div class="sessions" id="sessions"></div>
+      </div>
+      <div class="card">
+        <h2>Personal records</h2>
+        <p class="sub">heaviest set per lift · e1RM = estimated one-rep max</p>
+        <div class="scroll" id="prs"></div>
+      </div>
+    </section>
+  </div>
 </main>
+<div id="tip"></div>
 
 <script>
 const $ = s => document.querySelector(s);
 const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
-const num = v => (v === undefined || v === '' ? null : Number(v));
-const fmt = v => v == null ? '–' : Math.round(v).toLocaleString();
-const iso = d => d.toISOString().slice(0, 10);
+const num = v => (v === undefined || v === null || v === '' ? null : Number(v));
+const fmt = v => v == null || isNaN(v) ? '–' : Math.round(v).toLocaleString();
+const sign = v => v == null ? '–' : (v > 0 ? '+' : '') + fmt(v);
+const iso = d => { const z = new Date(d.getTime() - d.getTimezoneOffset() * 6e4); return z.toISOString().slice(0, 10); };
+const ago = n => { const d = new Date(); d.setDate(d.getDate() - n); return iso(d); };
+const nice = k => k.replace(/_/g, ' ');
+const avg = a => { const v = a.filter(x => x != null && !isNaN(x)); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+const sum = a => a.reduce((s, x) => s + (x || 0), 0);
 const MEALS = { B: 'Breakfast', L: 'Lunch', D: 'Dinner', S: 'Snack' };
 
 function parseCSV(text) {
-  const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
-  if (!lines.length) return [];
+  const lines = (text || '').replace(/\r/g, '').split('\n').filter(Boolean);
+  if (lines.length < 2 || lines[0].startsWith('<')) return [];
   const split = l => { const out = []; let cur = '', q = false;
     for (const ch of l) { if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch; }
     out.push(cur); return out; };
   const h = split(lines[0]);
   return lines.slice(1).map(l => { const v = split(l); return Object.fromEntries(h.map((k, i) => [k, v[i] ?? ''])); });
 }
-async function get(path, type = 'text') {
-  try { const r = await fetch(path + '?t=' + Date.now()); if (!r.ok) return type === 'json' ? {} : '';
-    return type === 'json' ? r.json() : r.text(); } catch { return type === 'json' ? {} : ''; }
+async function get(path, json) {
+  try { const r = await fetch(path + '?t=' + Date.now()); if (!r.ok) return json ? {} : '';
+    return json ? await r.json() : await r.text(); } catch { return json ? {} : ''; }
 }
 function md(src) {
   const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
@@ -163,133 +293,245 @@ function md(src) {
   return html + (list ? '</ul>' : '');
 }
 
-let DATA = { daily: [], log: [], profile: {} }, range = 30;
-try { range = Number(localStorage.getItem('range')) || 30; } catch {}
+let D = { daily: [], log: [], gym: [], profile: {} };
+const st = { range: 30, tab: 'overview' };
+try { st.range = Number(localStorage.getItem('range')) || 30; st.tab = localStorage.getItem('tab') || 'overview'; } catch {}
 const charts = {};
 
 async function load() {
-  const today = new Date(), month = iso(today).slice(0, 7);
-  const [daily, log, profile, ins] = await Promise.all([
-    get('data/daily.csv'), get(`data/log/${month}.csv`), get('profile.json', 'json'), get('insights/latest.md')]);
-  DATA = { daily: parseCSV(daily), log: parseCSV(log), profile };
+  // index.json (written by fit.py rollup) lists which month files exist, so nothing 404s
+  const recent = new Set([...Array(200).keys()].map(i => ago(i).slice(0, 7)));
+  const idx = await get('data/index.json', true);
+  const pick = a => (a || []).filter(m => recent.has(m));
+  const [daily, profile, ins, logs, gyms] = await Promise.all([
+    get('data/daily.csv'), get('profile.json', true), get('insights/latest.md'),
+    Promise.all(pick(idx.log).map(m => get(`data/log/${m}.csv`))), Promise.all(pick(idx.gym).map(m => get(`data/gym/${m}.csv`)))]);
+  D = { daily: parseCSV(daily), profile, log: logs.flatMap(parseCSV), gym: gyms.flatMap(parseCSV) };
   $('#insights').innerHTML = ins ? md(ins) : '<p class="empty">No insights yet — type <code>review</code> in Claude.</p>';
-  const last = DATA.daily.at(-1);
-  $('#updated').textContent = last ? `Data through ${last.date}` : 'No data yet — log food in Claude to begin.';
   render();
 }
 
 function days(n) {
-  const out = [], map = Object.fromEntries(DATA.daily.map(r => [r.date, r]));
-  for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = iso(d); out.push(map[k] || { date: k }); }
-  return out;
+  const map = Object.fromEntries(D.daily.map(r => [r.date, r]));
+  return [...Array(n).keys()].reverse().map(i => map[ago(i)] || { date: ago(i) });
 }
-const avg = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+const inRange = (rows, n) => { const s = ago(n - 1); return rows.filter(r => r.date >= s && r.date <= ago(0)); };
+
+/* ---------- hero ---------- */
+function renderHero() {
+  const p = D.profile, t = days(1)[0];
+  const tin = num(t.in) || 0, target = p.kcal_target || 2000;
+  const pct = Math.min(tin / target, 1), over = tin > target;
+  const C = 2 * Math.PI * 62;
+  const ring = `<div class="ring"><svg viewBox="0 0 150 150"><circle cx="75" cy="75" r="62" fill="none" stroke="var(--hero-track)" stroke-width="12"/>
+    <circle cx="75" cy="75" r="62" fill="none" stroke="${over ? '#ffb3b3' : '#fff'}" stroke-width="12" stroke-linecap="round"
+    stroke-dasharray="${C * pct} ${C}"/></svg><div class="c"><div><div class="big">${fmt(tin)}</div>
+    <div class="sm">of ${fmt(target)} kcal</div><div class="sm"><b>${over ? fmt(tin - target) + ' over' : fmt(target - tin) + ' left'}</b></div></div></div></div>`;
+  const cT = target * (p.carb_pct || 45) / 100 / 4, fT = target * (p.fat_pct || 25) / 100 / 9;
+  const bar = (l, v, tg) => `<div class="bar-row"><div class="lbl"><span>${l}</span><span>${fmt(v)} / ${fmt(tg)} g</span></div>
+    <div class="track"><div style="width:${Math.min(100, 100 * (v || 0) / tg)}%"></div></div></div>`;
+  const macros = `<div><h3>Today's macros</h3>${bar('Protein', num(t.p), p.protein_g || 150)}${bar('Carbs', num(t.c), cT)}${bar('Fat', num(t.f), fT)}</div>`;
+
+  const ws = D.daily.filter(r => num(r.weight)).map(r => num(r.weight));
+  const wNow = ws.at(-1) ?? p.start_weight, start = p.start_weight ?? ws[0], goal = p.goal_weight;
+  const prog = start && goal && wNow ? Math.max(0, Math.min(1, (start - wNow) / (start - goal))) : 0;
+  const streak = (() => { let n = 0; const has = new Set(D.daily.filter(r => num(r.in)).map(r => r.date));
+    for (let i = has.has(ago(0)) ? 0 : 1; has.has(ago(i)); i++) n++; return n; })();
+  const gym7 = new Set(inRange(D.gym, 7).map(r => r.date)).size;
+  const net = num(t.net);
+  const stats = `<div class="hero-stats">
+    <div><div class="v">${net == null ? '–' : sign(net)}</div><div class="l">net today (kcal)</div></div>
+    <div><div class="v">${fmt(num(t.out))}</div><div class="l">burned today</div></div>
+    <div><div class="v">${streak} ${streak === 1 ? 'day' : 'days'}</div><div class="l">logging streak</div></div>
+    <div><div class="v">${gym7} / 7</div><div class="l">gym days this week</div></div>
+    <div class="goal bar-row"><div class="lbl"><span>Goal weight ${goal ? fmt(goal * 10) / 10 + ' kg' : '–'}</span>
+      <span>${wNow ? (+wNow).toFixed(1) + ' kg now · ' + Math.round(prog * 100) + '%' : 'log weight with “w 102.5”'}</span></div>
+      <div class="track"><div style="width:${prog * 100}%"></div></div></div></div>`;
+  $('#hero').innerHTML = ring + macros + stats;
+}
 
 function tile(label, value, note, cls = '') {
   return `<div class="card tile"><div class="label">${label}</div><div class="value ${cls}">${value}</div><div class="note">${note}</div></div>`;
 }
 
-function renderTiles() {
-  const p = DATA.profile, t = days(1)[0], w7 = days(7);
-  const tin = num(t.in), tout = num(t.out), tnet = num(t.net);
-  const left = p.kcal_target && tin != null ? p.kcal_target - tin : null;
-  const an = avg(w7.map(r => num(r.net))), ap = avg(w7.map(r => num(r.p)));
-  const ws = DATA.daily.filter(r => num(r.weight)).map(r => [r.date, num(r.weight)]);
-  const wNow = ws.at(-1), wOld = ws.find(x => x[0] >= iso(new Date(Date.now() - 30 * 864e5)));
-  const wd = wNow && wOld ? wNow[1] - wOld[1] : null;
-  $('#tiles').innerHTML = [
-    tile('Eaten today', fmt(tin), left != null ? `${fmt(Math.abs(left))} ${left >= 0 ? 'left of' : 'over'} ${fmt(p.kcal_target)}` : `target ${fmt(p.kcal_target)}`),
-    tile('Net today', tnet != null ? (tnet > 0 ? '+' : '') + fmt(tnet) : '–', tout != null ? `burned ${fmt(tout)}` : 'burn not logged yet', tnet > 0 ? 'up' : ''),
-    tile('7-day avg net', an != null ? (an > 0 ? '+' : '') + fmt(an) : '–', `goal ${fmt(p.goal_net_kcal)} / day`, an != null && p.goal_net_kcal != null && an > p.goal_net_kcal ? 'up' : ''),
-    tile('7-day avg protein', ap != null ? fmt(ap) + ' g' : '–', `target ${fmt(p.protein_g)} g`),
-    tile('Weight', wNow ? wNow[1].toFixed(1) + ' kg' : '–', wd != null ? `${wd > 0 ? '+' : ''}${wd.toFixed(1)} kg in 30 days` : 'log with “w 72.4”'),
-  ].join('');
-}
-
-function baseOpts(unit) {
-  const ink2 = css('--ink-2'), muted = css('--muted'), grid = css('--grid');
-  return {
-    responsive: true, maintainAspectRatio: false, animation: false,
+/* ---------- chart helpers ---------- */
+function baseOpts(unit, horizontal) {
+  const muted = css('--muted'), o = {
+    responsive: true, maintainAspectRatio: false, animation: false, indexAxis: horizontal ? 'y' : 'x',
     interaction: { mode: 'index', intersect: false },
     plugins: { legend: { display: false },
-      tooltip: { backgroundColor: css('--surface'), titleColor: css('--ink'), bodyColor: ink2, borderColor: css('--axis'), borderWidth: 1,
-        padding: 10, boxPadding: 4, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y == null ? '–' : fmt(c.parsed.y)} ${unit}` } } },
+      tooltip: { backgroundColor: css('--raised'), titleColor: css('--ink'), bodyColor: css('--ink-2'), borderColor: css('--axis'), borderWidth: 1,
+        padding: 10, boxPadding: 4, filter: c => c.dataset.label !== 'Goal' && c.dataset.label !== 'Target' || c.dataIndex === 0,
+        callbacks: { label: c => ` ${c.dataset.label}: ${fmt(horizontal ? c.parsed.x : c.parsed.y)} ${unit}` } } },
     scales: {
-      x: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: muted, maxRotation: 0, autoSkipPadding: 12 } },
-      y: { grid: { color: grid }, border: { display: false }, ticks: { color: muted, maxTicksLimit: 5 } } },
+      x: { grid: { display: !!horizontal, color: css('--grid') }, border: { color: css('--axis'), display: !horizontal }, ticks: { color: muted, maxRotation: 0, autoSkipPadding: 12, maxTicksLimit: horizontal ? 5 : undefined } },
+      y: { grid: { display: !horizontal, color: css('--grid') }, border: { display: false }, ticks: { color: horizontal ? css('--ink-2') : muted, maxTicksLimit: horizontal ? undefined : 5 } } },
   };
+  return o;
 }
 const refLine = (n, value, label) => ({ type: 'line', label, data: Array(n).fill(value), borderColor: css('--ink-2'),
-  borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, order: 0 });
-
+  borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0 });
+const barDs = (label, data, color) => ({ type: 'bar', label, data, backgroundColor: color, borderRadius: 4, borderSkipped: 'start', maxBarThickness: 22 });
 function draw(id, cfg) { charts[id]?.destroy(); charts[id] = new Chart($(id), cfg); }
 
-function renderCharts(rows) {
-  const p = DATA.profile, n = rows.length;
-  const labels = rows.map(r => r.date.slice(5));
-  const pt = n > 31 ? 0 : 3;
+/* ---------- overview ---------- */
+function renderOverview(rows) {
+  const p = D.profile, n = rows.length, labels = rows.map(r => r.date.slice(5)), pt = n > 31 ? 0 : 3;
   const line = (label, key, color) => ({ type: 'line', label, data: rows.map(r => num(r[key])), borderColor: color, backgroundColor: color,
-    borderWidth: 2, pointRadius: pt, pointHoverRadius: 6, spanGaps: false, tension: 0.25 });
+    borderWidth: 2, pointRadius: pt, pointHoverRadius: 6, tension: 0.3 });
+  const an = avg(rows.map(r => num(r.net))), ai = avg(rows.map(r => num(r.in))), ao = avg(rows.map(r => num(r.out)));
+  const logged = rows.filter(r => num(r.in)).length;
+  const kgEst = sum(rows.map(r => num(r.net))) / 7700;
+  $('#tilesO').innerHTML = [
+    tile('Avg intake', fmt(ai), `target ${fmt(p.kcal_target)} kcal`),
+    tile('Avg burn', fmt(ao), 'kcal / day from Zepp'),
+    tile('Avg net', sign(an), `goal ${sign(p.goal_net_kcal)} / day`, an != null && p.goal_net_kcal != null && an > p.goal_net_kcal ? 'up' : ''),
+    tile('Est. fat change', isNaN(kgEst) || !logged ? '–' : (kgEst > 0 ? '+' : '') + kgEst.toFixed(2) + ' kg', 'from net kcal ÷ 7700'),
+    tile('Days logged', `${logged}/${n}`, 'food entries in range'),
+  ].join('');
+
   draw('#cIO', { data: { labels, datasets: [line('Intake', 'in', css('--s1')), line('Burn', 'out', css('--s2'))] }, options: baseOpts('kcal') });
-
   const net = rows.map(r => num(r.net));
-  const netDs = [{ type: 'bar', label: 'Net', data: net, borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
-    backgroundColor: net.map(v => v > 0 ? css('--surplus') : css('--deficit')) }];
-  if (p.goal_net_kcal != null) netDs.push(refLine(n, p.goal_net_kcal, 'Goal'));
-  draw('#cNet', { data: { labels, datasets: netDs }, options: baseOpts('kcal') });
-
-  const pDs = [{ type: 'bar', label: 'Protein', data: rows.map(r => num(r.p)), backgroundColor: css('--s3'), borderRadius: 4, maxBarThickness: 18 }];
-  if (p.protein_g) pDs.push(refLine(n, p.protein_g, 'Target'));
-  draw('#cP', { data: { labels, datasets: pDs }, options: baseOpts('g') });
+  const nd = [{ ...barDs('Net', net, net.map(v => v > 0 ? css('--surplus') : css('--deficit'))), borderSkipped: false }];
+  if (p.goal_net_kcal != null) nd.push(refLine(n, p.goal_net_kcal, 'Goal'));
+  draw('#cNet', { data: { labels, datasets: nd }, options: baseOpts('kcal') });
 
   const wo = baseOpts('kg'); wo.scales.y.beginAtZero = false;
-  wo.plugins.tooltip.callbacks.label = c => ` Weight: ${c.parsed.y?.toFixed(1)} kg`;
-  const wl = line('Weight', 'weight', css('--s1')); wl.spanGaps = true; wl.pointRadius = 3;
-  draw('#cW', { data: { labels, datasets: [wl] }, options: wo });
-
-  draw('#cS', { data: { labels, datasets: [{ type: 'bar', label: 'Steps', data: rows.map(r => num(r.steps)),
-    backgroundColor: css('--s1'), borderRadius: 4, maxBarThickness: 18 }] }, options: baseOpts('steps') });
-
-  // macro split
-  const P = avg(rows.map(r => num(r.p))), C = avg(rows.map(r => num(r.c))), F = avg(rows.map(r => num(r.f)));
-  if (P == null) { $('#macroBar').innerHTML = ''; $('#macroLegend').innerHTML = '<span class="empty">No food logged in range.</span>'; return; }
-  const parts = [['Protein', P * 4, P, '--s3'], ['Carbs', C * 4, C, '--s4'], ['Fat', F * 9, F, '--s2']];
-  const tot = parts.reduce((s, x) => s + x[1], 0) || 1;
-  $('#macroBar').innerHTML = parts.map(([l, k, g, c]) => `<div title="${l}: ${Math.round(100 * k / tot)}% (${Math.round(g)} g/day)" style="flex:${k};background:var(${c})"></div>`).join('');
-  $('#macroLegend').innerHTML = parts.map(([l, k, g, c]) => `<span><i style="background:var(${c})"></i>${l} ${Math.round(100 * k / tot)}% · ${Math.round(g)} g/day</span>`).join('');
+  wo.plugins.tooltip.callbacks.label = c => ` ${c.dataset.label}: ${c.parsed.y?.toFixed(1)} kg`;
+  const wd = [{ ...line('Weight', 'weight', css('--s1')), spanGaps: true, pointRadius: 3 }];
+  if (p.goal_weight) wd.push(refLine(n, p.goal_weight, 'Goal'));
+  draw('#cW', { data: { labels, datasets: wd }, options: wo });
+  draw('#cS', { data: { labels, datasets: [barDs('Steps', rows.map(r => num(r.steps)), css('--s1'))] }, options: baseOpts('steps') });
 }
 
-function renderToday() {
-  const t = iso(new Date()), rows = DATA.log.filter(r => r.date === t);
-  if (!rows.length) { $('#today').innerHTML = '<p class="empty">Nothing logged today yet.</p>'; return; }
-  let html = '<table><tr><th>Food</th><th class="n">Qty</th><th class="n">kcal</th><th class="n">P g</th></tr>';
-  for (const m of 'BLDS') {
-    const it = rows.filter(r => r.meal === m); if (!it.length) continue;
-    const k = it.reduce((s, r) => s + Number(r.kcal), 0);
-    html += `<tr><th colspan="2">${MEALS[m]}</th><th class="n">${fmt(k)}</th><th></th></tr>`;
-    html += it.map(r => `<tr><td>${r.food.replace(/_/g, ' ')}</td><td class="n">${r.qty}</td><td class="n">${fmt(+r.kcal)}</td><td class="n">${fmt(+r.p)}</td></tr>`).join('');
+/* ---------- nutrition ---------- */
+function splitBar(barId, legId, parts) {
+  const tot = sum(parts.map(x => x[1]));
+  if (!tot) { $(barId).innerHTML = ''; $(legId).innerHTML = '<span class="empty">No food logged in range.</span>'; return; }
+  $(barId).innerHTML = parts.filter(x => x[1]).map(([l, v, , c]) => `<div data-tip="${l}: ${Math.round(100 * v / tot)}%" style="flex:${v};background:var(${c})"></div>`).join('');
+  $(legId).innerHTML = parts.map(([l, v, extra, c]) => `<span><i style="background:var(${c})"></i>${l} ${Math.round(100 * v / tot)}%${extra ? ' · ' + extra : ''}</span>`).join('');
+}
+function renderNutrition(rows) {
+  const p = D.profile, n = rows.length, labels = rows.map(r => r.date.slice(5));
+  const pd = [barDs('Protein', rows.map(r => num(r.p)), css('--s3'))];
+  if (p.protein_g) pd.push(refLine(n, p.protein_g, 'Target'));
+  draw('#cP', { data: { labels, datasets: pd }, options: baseOpts('g') });
+
+  const P = avg(rows.map(r => num(r.p))) || 0, C = avg(rows.map(r => num(r.c))) || 0, F = avg(rows.map(r => num(r.f))) || 0;
+  $('#macroSub').textContent = `share of kcal, average over last ${n} days`;
+  splitBar('#macroBar', '#macroLegend', [['Protein', P * 4, fmt(P) + ' g', '--s3'], ['Carbs', C * 4, fmt(C) + ' g', '--s4'], ['Fat', F * 9, fmt(F) + ' g', '--s2']]);
+  const logs = inRange(D.log, n), byMeal = m => sum(logs.filter(r => r.meal === m).map(r => +r.kcal));
+  splitBar('#mealBar', '#mealLegend', [['Breakfast', byMeal('B'), '', '--s1'], ['Lunch', byMeal('L'), '', '--s2'], ['Dinner', byMeal('D'), '', '--s3'], ['Snack', byMeal('S'), '', '--s4']]);
+
+  const foods = {}; logs.forEach(r => foods[r.food] = (foods[r.food] || 0) + +r.kcal);
+  const top = Object.entries(foods).sort((a, b) => b[1] - a[1]).slice(0, 8);
+  draw('#cTop', { data: { labels: top.map(x => nice(x[0])), datasets: [barDs('Calories', top.map(x => Math.round(x[1])), css('--s1'))] }, options: baseOpts('kcal', true) });
+
+  const t = ago(0), today = D.log.filter(r => r.date === t);
+  if (!today.length) $('#today').innerHTML = '<p class="empty">Nothing logged today yet.</p>';
+  else {
+    let h = '<table><tr><th>Food</th><th class="n">Qty</th><th class="n">kcal</th><th class="n">P g</th></tr>';
+    for (const m of 'BLDS') {
+      const it = today.filter(r => r.meal === m); if (!it.length) continue;
+      h += `<tr class="meal-h"><th colspan="2">${MEALS[m]}</th><th class="n">${fmt(sum(it.map(r => +r.kcal)))}</th><th class="n">${fmt(sum(it.map(r => +r.p)))}</th></tr>`;
+      h += it.map(r => `<tr><td>${nice(r.food)}</td><td class="n">${r.qty}</td><td class="n">${fmt(+r.kcal)}</td><td class="n">${fmt(+r.p)}</td></tr>`).join('');
+    }
+    $('#today').innerHTML = h + '</table>';
   }
-  $('#today').innerHTML = html + '</table>';
-}
-
-function renderTable(rows) {
-  const cols = ['date', 'in', 'out', 'net', 'p', 'c', 'f', 'steps', 'weight'];
-  const names = ['Date', 'In', 'Out', 'Net', 'P g', 'C g', 'F g', 'Steps', 'Kg'];
-  $('#table').innerHTML = '<table><tr>' + names.map((n, i) => `<th class="${i ? 'n' : ''}">${n}</th>`).join('') + '</tr>' +
+  const cols = ['date', 'in', 'out', 'net', 'p', 'c', 'f', 'steps', 'weight', 'gym_sets'];
+  const names = ['Date', 'In', 'Out', 'Net', 'P g', 'C g', 'F g', 'Steps', 'Kg', 'Sets'];
+  $('#table').innerHTML = '<table><tr>' + names.map((x, i) => `<th class="${i ? 'n' : ''}">${x}</th>`).join('') + '</tr>' +
     rows.slice().reverse().map(r => '<tr>' + cols.map((c, i) => `<td class="${i ? 'n' : ''}">${r[c] ?? ''}</td>`).join('') + '</tr>').join('') + '</table>';
 }
 
-function render() {
-  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.r === range)));
-  const rows = days(range);
-  renderTiles(); renderCharts(rows); renderToday(); renderTable(rows);
-  $('#macroSub').textContent = `share of kcal, average over last ${range} days`;
+/* ---------- gym ---------- */
+function prMap(rows) {
+  const best = {};
+  for (const r of rows) { const kg = num(r.kg); if (!kg) continue;
+    const e = kg * (1 + (num(r.reps) || 1) / 30);
+    if (!best[r.exercise] || e > best[r.exercise].e) best[r.exercise] = { kg, reps: r.reps, e, date: r.date }; }
+  return best;
+}
+function renderGym(rows) {
+  const n = rows.length, g = inRange(D.gym, n), sessDates = [...new Set(g.map(r => r.date))].sort();
+  const vol = sum(g.map(r => num(r.vol))), mins = sum(g.map(r => num(r.min)));
+  const prevStart = ago(2 * n - 1), prevEnd = ago(n);
+  const pvol = sum(D.gym.filter(r => r.date >= prevStart && r.date <= prevEnd).map(r => num(r.vol)));
+  // a PR = a set heavier than every earlier set of that exercise (first-ever set doesn't count)
+  const sorted = D.gym.slice().sort((a, b) => a.date.localeCompare(b.date)), run = {}, prRows = new Set();
+  for (const r of sorted) { const kg = num(r.kg); if (!kg) continue;
+    if (run[r.exercise] != null && kg > run[r.exercise]) prRows.add(r);
+    run[r.exercise] = Math.max(run[r.exercise] || 0, kg); }
+  const prsInRange = [...prRows].filter(r => r.date >= ago(n - 1)).length;
+  const perWeek = sessDates.length / (n / 7);
+  $('#tilesG').innerHTML = [
+    tile('Sessions', sessDates.length, `${perWeek.toFixed(1)} per week`),
+    tile('Total sets', fmt(sum(g.map(r => num(r.sets)))), `last ${n} days`),
+    tile('Volume', vol >= 1e4 ? (vol / 1000).toFixed(1) + 't' : fmt(vol) + ' kg', pvol ? `${vol >= pvol ? '▲' : '▼'} ${Math.abs(Math.round(100 * (vol - pvol) / pvol))}% vs previous ${n}d` : 'kg lifted'),
+    tile('Cardio', fmt(mins) + ' min', 'treadmill, cycling, …'),
+    tile('New PRs', prsInRange, 'heavier than ever before'),
+  ].join('');
+
+  // heatmap: 16 weeks ending this week (Sun-start columns)
+  const setsBy = {}; D.gym.forEach(r => setsBy[r.date] = (setsBy[r.date] || 0) + (num(r.sets) || (num(r.min) ? 2 : 0)));
+  const end = new Date(); const start = new Date(); start.setDate(end.getDate() - end.getDay() - 7 * 15);
+  const cells = []; const lv = s => !s ? 'var(--grid)' : s < 6 ? 'var(--seq1)' : s < 12 ? 'var(--seq2)' : s < 18 ? 'var(--seq3)' : s < 24 ? 'var(--seq4)' : 'var(--seq5)';
+  for (let d = new Date(start); d <= end; d.setDate(d.getDate() + 1)) {
+    const k = iso(d), s = setsBy[k] || 0;
+    cells.push(`<div style="background:${lv(s)}" data-tip="${k}: ${s ? s + ' sets' : 'rest'}"></div>`);
+  }
+  $('#heat').innerHTML = cells.join('');
+
+  // groups
+  const gs = {}; g.forEach(r => gs[r.group] = (gs[r.group] || 0) + (num(r.sets) || (num(r.min) ? 1 : 0)));
+  const order = ['chest', 'back', 'legs', 'shoulders', 'arms', 'core', 'cardio', 'full'].filter(k => gs[k] != null || k !== 'full');
+  draw('#cGroups', { data: { labels: order.map(k => k[0].toUpperCase() + k.slice(1)), datasets: [barDs('Sets', order.map(k => gs[k] || 0), css('--s1'))] }, options: baseOpts('sets', true) });
+
+  // volume per session
+  const volBy = {}; g.forEach(r => volBy[r.date] = (volBy[r.date] || 0) + (num(r.vol) || 0));
+  const labels = rows.map(r => r.date.slice(5));
+  draw('#cVol', { data: { labels, datasets: [barDs('Volume', rows.map(r => volBy[r.date] ?? null), css('--s3'))] }, options: baseOpts('kg') });
+
+  // recent sessions
+  const all = [...new Set(D.gym.map(r => r.date))].sort().reverse().slice(0, 5);
+  $('#sessions').innerHTML = all.length ? all.map(d => {
+    const it = D.gym.filter(r => r.date === d), groups = [...new Set(it.map(r => r.group))];
+    const v = sum(it.map(r => num(r.vol))), dd = new Date(d + 'T12:00');
+    return `<div class="session"><div class="session-h"><b>${dd.toLocaleDateString(undefined, { weekday: 'short', day: 'numeric', month: 'short' })}</b>
+      <span>${fmt(sum(it.map(r => num(r.sets))))} sets · ${fmt(v)} kg</span></div>
+      <div class="chips">${groups.map(x => `<span class="chip">${x}</span>`).join('')}</div>
+      ${it.map(r => `<div class="ex"><b>${nice(r.exercise)}${prRows.has(r) ?'<span class="pr">PR</span>' : ''}</b>
+        <span>${r.min ? r.min + ' min' : r.sets + ' × ' + r.reps + (r.kg ? ' @ ' + r.kg + ' kg' : '')}</span></div>`).join('')}</div>`;
+  }).join('') : '<p class="empty">No workouts yet — tell Claude <code>g: bench 4x8@60, pullup 3x10</code></p>';
+
+  const pr = Object.entries(prMap(D.gym)).sort((a, b) => b[1].e - a[1].e).slice(0, 12);
+  $('#prs').innerHTML = pr.length ? '<table><tr><th>Lift</th><th class="n">Best</th><th class="n">e1RM</th><th class="n">Date</th></tr>' +
+    pr.map(([k, v]) => `<tr><td style="text-transform:capitalize">${nice(k)}</td><td class="n">${v.kg} kg × ${v.reps}</td><td class="n">${fmt(v.e)} kg</td><td class="n">${v.date.slice(5)}</td></tr>`).join('') + '</table>'
+    : '<p class="empty">PRs appear after your first weighted lifts.</p>';
 }
 
-document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
-  range = +b.dataset.r; try { localStorage.setItem('range', range); } catch {} render();
-}));
-matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
+/* ---------- shell ---------- */
+function render() {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.r === st.range)));
+  document.querySelectorAll('.tabs button').forEach(b => b.setAttribute('aria-selected', String(b.dataset.tab === st.tab)));
+  document.querySelectorAll('[data-panel]').forEach(p => p.hidden = p.dataset.panel !== st.tab);
+  renderHero();
+  const rows = days(st.range);
+  ({ overview: renderOverview, nutrition: renderNutrition, gym: renderGym })[st.tab](rows);
+}
+const save = () => { try { localStorage.setItem('range', st.range); localStorage.setItem('tab', st.tab); } catch {} };
+document.querySelectorAll('.seg button').forEach(b => b.onclick = () => { st.range = +b.dataset.r; save(); render(); });
+document.querySelectorAll('.tabs button').forEach(b => b.onclick = () => { st.tab = b.dataset.tab; save(); render(); });
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', render);
+
+// shared tooltip for heatmap cells and split bars
+const tip = $('#tip');
+document.addEventListener('mousemove', e => {
+  const t = e.target.closest('[data-tip]');
+  if (!t) { tip.style.opacity = 0; return; }
+  tip.textContent = t.dataset.tip; tip.style.opacity = 1;
+  tip.style.left = Math.min(e.clientX + 12, innerWidth - tip.offsetWidth - 8) + 'px'; tip.style.top = (e.clientY + 14) + 'px';
+});
 load();
 </script>
 </body>

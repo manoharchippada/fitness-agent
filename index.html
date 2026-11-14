@@ -1,0 +1,296 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Calorie Dashboard</title>
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.1/dist/chart.umd.js"></script>
+<style>
+:root {
+  color-scheme: light;
+  --page: #f9f9f7; --surface: #fcfcfb; --ink: #0b0b0b; --ink-2: #52514e; --muted: #898781;
+  --grid: #e1e0d9; --axis: #c3c2b7; --border: rgba(11,11,11,0.10);
+  --s1: #2a78d6; --s2: #eb6834; --s3: #1baf7a; --s4: #eda100;
+  --deficit: #2a78d6; --surplus: #e34948; --good: #006300; --bad: #d03b3b;
+}
+@media (prefers-color-scheme: dark) {
+  :root:where(:not([data-theme="light"])) {
+    color-scheme: dark;
+    --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+    --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+    --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+    --deficit: #3987e5; --surplus: #e66767; --good: #0ca30c; --bad: #e66767;
+  }
+}
+:root[data-theme="dark"] {
+  color-scheme: dark;
+  --page: #0d0d0d; --surface: #1a1a19; --ink: #f0efec; --ink-2: #c3c2b7; --muted: #898781;
+  --grid: #2c2c2a; --axis: #383835; --border: rgba(255,255,255,0.10);
+  --s1: #3987e5; --s2: #d95926; --s3: #199e70; --s4: #c98500;
+  --deficit: #3987e5; --surplus: #e66767; --good: #0ca30c; --bad: #e66767;
+}
+* { box-sizing: border-box; }
+body { margin: 0; background: var(--page); color: var(--ink);
+  font: 15px/1.45 system-ui, -apple-system, "Segoe UI", sans-serif; }
+main { max-width: 1100px; margin: 0 auto; padding: 20px 16px 48px; }
+header { display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 12px; margin-bottom: 16px; }
+h1 { font-size: 22px; margin: 0; }
+h2 { font-size: 15px; margin: 0 0 2px; }
+.sub { color: var(--ink-2); font-size: 13px; margin: 0 0 10px; }
+.seg { display: inline-flex; border: 1px solid var(--border); border-radius: 8px; overflow: hidden; }
+.seg button { background: var(--surface); color: var(--ink-2); border: 0; padding: 6px 12px; font: inherit; cursor: pointer; }
+.seg button[aria-pressed="true"] { background: var(--ink); color: var(--page); font-weight: 600; }
+.tiles { display: grid; grid-template-columns: repeat(auto-fit, minmax(160px, 1fr)); gap: 12px; margin-bottom: 12px; }
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 14px 16px; min-width: 0; }
+.tile .label { color: var(--ink-2); font-size: 13px; }
+.tile .value { font-size: 28px; font-weight: 650; margin: 2px 0; }
+.tile .note { color: var(--muted); font-size: 12px; }
+.grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(min(100%, 480px), 1fr)); gap: 12px; }
+.wide { grid-column: 1 / -1; }
+.chart { position: relative; height: 240px; }
+.legend { display: flex; gap: 14px; flex-wrap: wrap; font-size: 13px; color: var(--ink-2); margin-bottom: 6px; }
+.legend i { display: inline-block; width: 10px; height: 10px; border-radius: 2px; margin-right: 6px; vertical-align: -1px; }
+.macro { display: flex; height: 28px; gap: 2px; border-radius: 6px; overflow: hidden; margin: 10px 0 8px; }
+.macro div { height: 100%; }
+table { width: 100%; border-collapse: collapse; font-size: 14px; font-variant-numeric: tabular-nums; }
+th, td { text-align: left; padding: 6px 8px; border-bottom: 1px solid var(--grid); }
+th { color: var(--ink-2); font-weight: 600; font-size: 12px; }
+td.n, th.n { text-align: right; }
+.insights h1 { font-size: 17px; margin: 0 0 6px; }
+.insights h2 { font-size: 14px; margin: 12px 0 4px; color: var(--ink-2); }
+.insights ul { margin: 0; padding-left: 20px; }
+.insights p { margin: 4px 0; }
+.empty { color: var(--muted); font-size: 14px; padding: 20px 0; }
+.up { color: var(--bad); } .down { color: var(--good); }
+details summary { cursor: pointer; color: var(--ink-2); font-size: 13px; margin-top: 8px; }
+.scroll { overflow-x: auto; }
+</style>
+</head>
+<body>
+<main>
+  <header>
+    <div>
+      <h1>Calorie Dashboard</h1>
+      <div class="sub" id="updated">Loading…</div>
+    </div>
+    <div class="seg" role="group" aria-label="Date range">
+      <button data-r="7">7 days</button><button data-r="30" aria-pressed="true">30 days</button><button data-r="90">90 days</button>
+    </div>
+  </header>
+
+  <section class="tiles" id="tiles"></section>
+
+  <section class="grid">
+    <div class="card wide">
+      <h2>Intake vs burn</h2>
+      <p class="sub">kcal per day — food logged vs total burn from Zepp</p>
+      <div class="legend"><span><i style="background:var(--s1)"></i>Intake</span><span><i style="background:var(--s2)"></i>Burn</span></div>
+      <div class="chart"><canvas id="cIO"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Daily net</h2>
+      <p class="sub">intake − burn; below 0 is a deficit. Dashed line = goal</p>
+      <div class="legend"><span><i style="background:var(--deficit)"></i>Deficit</span><span><i style="background:var(--surplus)"></i>Surplus</span></div>
+      <div class="chart"><canvas id="cNet"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Protein</h2>
+      <p class="sub">grams per day. Dashed line = target</p>
+      <div class="chart"><canvas id="cP"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Macro split</h2>
+      <p class="sub" id="macroSub">share of kcal, average over range</p>
+      <div class="macro" id="macroBar"></div>
+      <div class="legend" id="macroLegend"></div>
+    </div>
+    <div class="card">
+      <h2>Weight</h2>
+      <p class="sub">kg, from <code>w 72.4</code> entries</p>
+      <div class="chart"><canvas id="cW"></canvas></div>
+    </div>
+    <div class="card">
+      <h2>Steps</h2>
+      <p class="sub">per day from Zepp</p>
+      <div class="chart"><canvas id="cS"></canvas></div>
+    </div>
+    <div class="card">
+      <h2 id="todayTitle">Today</h2>
+      <p class="sub">what was logged, by meal</p>
+      <div class="scroll" id="today"></div>
+    </div>
+    <div class="card wide insights" id="insights"></div>
+    <div class="card wide">
+      <h2>Daily data</h2>
+      <details><summary>Show table for selected range</summary><div class="scroll" id="table"></div></details>
+    </div>
+  </section>
+</main>
+
+<script>
+const $ = s => document.querySelector(s);
+const css = v => getComputedStyle(document.documentElement).getPropertyValue(v).trim();
+const num = v => (v === undefined || v === '' ? null : Number(v));
+const fmt = v => v == null ? '–' : Math.round(v).toLocaleString();
+const iso = d => d.toISOString().slice(0, 10);
+const MEALS = { B: 'Breakfast', L: 'Lunch', D: 'Dinner', S: 'Snack' };
+
+function parseCSV(text) {
+  const lines = text.replace(/\r/g, '').split('\n').filter(Boolean);
+  if (!lines.length) return [];
+  const split = l => { const out = []; let cur = '', q = false;
+    for (const ch of l) { if (ch === '"') q = !q; else if (ch === ',' && !q) { out.push(cur); cur = ''; } else cur += ch; }
+    out.push(cur); return out; };
+  const h = split(lines[0]);
+  return lines.slice(1).map(l => { const v = split(l); return Object.fromEntries(h.map((k, i) => [k, v[i] ?? ''])); });
+}
+async function get(path, type = 'text') {
+  try { const r = await fetch(path + '?t=' + Date.now()); if (!r.ok) return type === 'json' ? {} : '';
+    return type === 'json' ? r.json() : r.text(); } catch { return type === 'json' ? {} : ''; }
+}
+function md(src) {
+  const esc = s => s.replace(/&/g, '&amp;').replace(/</g, '&lt;');
+  const inline = s => esc(s).replace(/\*\*(.+?)\*\*/g, '<strong>$1</strong>').replace(/`(.+?)`/g, '<code>$1</code>');
+  let html = '', list = false;
+  for (const line of src.split('\n')) {
+    const li = line.match(/^\s*[-*] (.*)/);
+    if (li) { if (!list) { html += '<ul>'; list = true; } html += `<li>${inline(li[1])}</li>`; continue; }
+    if (list) { html += '</ul>'; list = false; }
+    const h = line.match(/^(#{1,3}) (.*)/);
+    if (h) html += `<h${h[1].length}>${inline(h[2])}</h${h[1].length}>`;
+    else if (line.trim()) html += `<p>${inline(line)}</p>`;
+  }
+  return html + (list ? '</ul>' : '');
+}
+
+let DATA = { daily: [], log: [], profile: {} }, range = 30;
+try { range = Number(localStorage.getItem('range')) || 30; } catch {}
+const charts = {};
+
+async function load() {
+  const today = new Date(), month = iso(today).slice(0, 7);
+  const [daily, log, profile, ins] = await Promise.all([
+    get('data/daily.csv'), get(`data/log/${month}.csv`), get('profile.json', 'json'), get('insights/latest.md')]);
+  DATA = { daily: parseCSV(daily), log: parseCSV(log), profile };
+  $('#insights').innerHTML = ins ? md(ins) : '<p class="empty">No insights yet — type <code>review</code> in Claude.</p>';
+  const last = DATA.daily.at(-1);
+  $('#updated').textContent = last ? `Data through ${last.date}` : 'No data yet — log food in Claude to begin.';
+  render();
+}
+
+function days(n) {
+  const out = [], map = Object.fromEntries(DATA.daily.map(r => [r.date, r]));
+  for (let i = n - 1; i >= 0; i--) { const d = new Date(); d.setDate(d.getDate() - i); const k = iso(d); out.push(map[k] || { date: k }); }
+  return out;
+}
+const avg = a => { const v = a.filter(x => x != null); return v.length ? v.reduce((s, x) => s + x, 0) / v.length : null; };
+
+function tile(label, value, note, cls = '') {
+  return `<div class="card tile"><div class="label">${label}</div><div class="value ${cls}">${value}</div><div class="note">${note}</div></div>`;
+}
+
+function renderTiles() {
+  const p = DATA.profile, t = days(1)[0], w7 = days(7);
+  const tin = num(t.in), tout = num(t.out), tnet = num(t.net);
+  const left = p.kcal_target && tin != null ? p.kcal_target - tin : null;
+  const an = avg(w7.map(r => num(r.net))), ap = avg(w7.map(r => num(r.p)));
+  const ws = DATA.daily.filter(r => num(r.weight)).map(r => [r.date, num(r.weight)]);
+  const wNow = ws.at(-1), wOld = ws.find(x => x[0] >= iso(new Date(Date.now() - 30 * 864e5)));
+  const wd = wNow && wOld ? wNow[1] - wOld[1] : null;
+  $('#tiles').innerHTML = [
+    tile('Eaten today', fmt(tin), left != null ? `${fmt(Math.abs(left))} ${left >= 0 ? 'left of' : 'over'} ${fmt(p.kcal_target)}` : `target ${fmt(p.kcal_target)}`),
+    tile('Net today', tnet != null ? (tnet > 0 ? '+' : '') + fmt(tnet) : '–', tout != null ? `burned ${fmt(tout)}` : 'burn not logged yet', tnet > 0 ? 'up' : ''),
+    tile('7-day avg net', an != null ? (an > 0 ? '+' : '') + fmt(an) : '–', `goal ${fmt(p.goal_net_kcal)} / day`, an != null && p.goal_net_kcal != null && an > p.goal_net_kcal ? 'up' : ''),
+    tile('7-day avg protein', ap != null ? fmt(ap) + ' g' : '–', `target ${fmt(p.protein_g)} g`),
+    tile('Weight', wNow ? wNow[1].toFixed(1) + ' kg' : '–', wd != null ? `${wd > 0 ? '+' : ''}${wd.toFixed(1)} kg in 30 days` : 'log with “w 72.4”'),
+  ].join('');
+}
+
+function baseOpts(unit) {
+  const ink2 = css('--ink-2'), muted = css('--muted'), grid = css('--grid');
+  return {
+    responsive: true, maintainAspectRatio: false, animation: false,
+    interaction: { mode: 'index', intersect: false },
+    plugins: { legend: { display: false },
+      tooltip: { backgroundColor: css('--surface'), titleColor: css('--ink'), bodyColor: ink2, borderColor: css('--axis'), borderWidth: 1,
+        padding: 10, boxPadding: 4, callbacks: { label: c => ` ${c.dataset.label}: ${c.parsed.y == null ? '–' : fmt(c.parsed.y)} ${unit}` } } },
+    scales: {
+      x: { grid: { display: false }, border: { color: css('--axis') }, ticks: { color: muted, maxRotation: 0, autoSkipPadding: 12 } },
+      y: { grid: { color: grid }, border: { display: false }, ticks: { color: muted, maxTicksLimit: 5 } } },
+  };
+}
+const refLine = (n, value, label) => ({ type: 'line', label, data: Array(n).fill(value), borderColor: css('--ink-2'),
+  borderDash: [5, 4], borderWidth: 1.5, pointRadius: 0, pointHoverRadius: 0, order: 0 });
+
+function draw(id, cfg) { charts[id]?.destroy(); charts[id] = new Chart($(id), cfg); }
+
+function renderCharts(rows) {
+  const p = DATA.profile, n = rows.length;
+  const labels = rows.map(r => r.date.slice(5));
+  const pt = n > 31 ? 0 : 3;
+  const line = (label, key, color) => ({ type: 'line', label, data: rows.map(r => num(r[key])), borderColor: color, backgroundColor: color,
+    borderWidth: 2, pointRadius: pt, pointHoverRadius: 6, spanGaps: false, tension: 0.25 });
+  draw('#cIO', { data: { labels, datasets: [line('Intake', 'in', css('--s1')), line('Burn', 'out', css('--s2'))] }, options: baseOpts('kcal') });
+
+  const net = rows.map(r => num(r.net));
+  const netDs = [{ type: 'bar', label: 'Net', data: net, borderRadius: 4, borderSkipped: false, maxBarThickness: 18,
+    backgroundColor: net.map(v => v > 0 ? css('--surplus') : css('--deficit')) }];
+  if (p.goal_net_kcal != null) netDs.push(refLine(n, p.goal_net_kcal, 'Goal'));
+  draw('#cNet', { data: { labels, datasets: netDs }, options: baseOpts('kcal') });
+
+  const pDs = [{ type: 'bar', label: 'Protein', data: rows.map(r => num(r.p)), backgroundColor: css('--s3'), borderRadius: 4, maxBarThickness: 18 }];
+  if (p.protein_g) pDs.push(refLine(n, p.protein_g, 'Target'));
+  draw('#cP', { data: { labels, datasets: pDs }, options: baseOpts('g') });
+
+  const wo = baseOpts('kg'); wo.scales.y.beginAtZero = false;
+  wo.plugins.tooltip.callbacks.label = c => ` Weight: ${c.parsed.y?.toFixed(1)} kg`;
+  const wl = line('Weight', 'weight', css('--s1')); wl.spanGaps = true; wl.pointRadius = 3;
+  draw('#cW', { data: { labels, datasets: [wl] }, options: wo });
+
+  draw('#cS', { data: { labels, datasets: [{ type: 'bar', label: 'Steps', data: rows.map(r => num(r.steps)),
+    backgroundColor: css('--s1'), borderRadius: 4, maxBarThickness: 18 }] }, options: baseOpts('steps') });
+
+  // macro split
+  const P = avg(rows.map(r => num(r.p))), C = avg(rows.map(r => num(r.c))), F = avg(rows.map(r => num(r.f)));
+  if (P == null) { $('#macroBar').innerHTML = ''; $('#macroLegend').innerHTML = '<span class="empty">No food logged in range.</span>'; return; }
+  const parts = [['Protein', P * 4, P, '--s3'], ['Carbs', C * 4, C, '--s4'], ['Fat', F * 9, F, '--s2']];
+  const tot = parts.reduce((s, x) => s + x[1], 0) || 1;
+  $('#macroBar').innerHTML = parts.map(([l, k, g, c]) => `<div title="${l}: ${Math.round(100 * k / tot)}% (${Math.round(g)} g/day)" style="flex:${k};background:var(${c})"></div>`).join('');
+  $('#macroLegend').innerHTML = parts.map(([l, k, g, c]) => `<span><i style="background:var(${c})"></i>${l} ${Math.round(100 * k / tot)}% · ${Math.round(g)} g/day</span>`).join('');
+}
+
+function renderToday() {
+  const t = iso(new Date()), rows = DATA.log.filter(r => r.date === t);
+  if (!rows.length) { $('#today').innerHTML = '<p class="empty">Nothing logged today yet.</p>'; return; }
+  let html = '<table><tr><th>Food</th><th class="n">Qty</th><th class="n">kcal</th><th class="n">P g</th></tr>';
+  for (const m of 'BLDS') {
+    const it = rows.filter(r => r.meal === m); if (!it.length) continue;
+    const k = it.reduce((s, r) => s + Number(r.kcal), 0);
+    html += `<tr><th colspan="2">${MEALS[m]}</th><th class="n">${fmt(k)}</th><th></th></tr>`;
+    html += it.map(r => `<tr><td>${r.food.replace(/_/g, ' ')}</td><td class="n">${r.qty}</td><td class="n">${fmt(+r.kcal)}</td><td class="n">${fmt(+r.p)}</td></tr>`).join('');
+  }
+  $('#today').innerHTML = html + '</table>';
+}
+
+function renderTable(rows) {
+  const cols = ['date', 'in', 'out', 'net', 'p', 'c', 'f', 'steps', 'weight'];
+  const names = ['Date', 'In', 'Out', 'Net', 'P g', 'C g', 'F g', 'Steps', 'Kg'];
+  $('#table').innerHTML = '<table><tr>' + names.map((n, i) => `<th class="${i ? 'n' : ''}">${n}</th>`).join('') + '</tr>' +
+    rows.slice().reverse().map(r => '<tr>' + cols.map((c, i) => `<td class="${i ? 'n' : ''}">${r[c] ?? ''}</td>`).join('') + '</tr>').join('') + '</table>';
+}
+
+function render() {
+  document.querySelectorAll('.seg button').forEach(b => b.setAttribute('aria-pressed', String(+b.dataset.r === range)));
+  const rows = days(range);
+  renderTiles(); renderCharts(rows); renderToday(); renderTable(rows);
+  $('#macroSub').textContent = `share of kcal, average over last ${range} days`;
+}
+
+document.querySelectorAll('.seg button').forEach(b => b.addEventListener('click', () => {
+  range = +b.dataset.r; try { localStorage.setItem('range', range); } catch {} render();
+}));
+matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => render());
+load();
+</script>
+</body>
+</html>

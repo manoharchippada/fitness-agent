@@ -1,0 +1,16 @@
+{
+  "sex": "male",
+  "age": 27,
+  "height_cm": 182.9,
+  "kcal_target": 2100,
+  "protein_g": 150,
+  "carb_pct": 45,
+  "fat_pct": 25,
+  "bmr": 2038,
+  "goal_net_kcal": -500,
+  "start_weight": 102.5,
+  "goal_weight": 93.0,
+  "units": "kg (start 226 lbs, goal 205 lbs)",
+  "diet": "set me: veg / egg / non-veg",
+  "notes": "bmr = Mifflin-St Jeor (6 ft, 226 lbs, 27, male). goal_net_kcal -500/day is about -0.45 kg (1 lb)/week. Recheck bmr every ~5 kg lost."
+}
